@@ -30,68 +30,29 @@ export class OrderService {
   ];
 
   // ===============================
-  // GARMENT LIST (NO PRICING)
+  // GARMENT LIST
   // ===============================
 
   pieceItems = [
-
-    { name: 'Shirt' },
-    { name: 'T-Shirt' },
-    { name: 'Top' },
-
-    { name: 'Trouser' },
-    { name: 'Jeans' },
-
+    { name: 'Shirt' }, { name: 'T-Shirt' }, { name: 'Top' },
+    { name: 'Trouser' }, { name: 'Jeans' },
     { name: 'Kurta' },
-
-    { name: 'Pyjama' },
-    { name: 'Salwar' },
-    { name: 'Petticoat' },
-
-    { name: 'Coat' },
-    { name: 'Jacket' },
-
-    { name: 'Sherwani' },
-
-    { name: 'Tie' },
-
-    { name: 'Overcoat' },
-
-    { name: 'Cotton Saree' },
-    { name: 'Silk Saree' },
-
-    { name: 'Blouse' },
-    { name: 'Dupatta' },
-    { name: 'Scarf' },
-
-    { name: 'Dress' },
-    { name: 'Gown' },
-
-    { name: 'Long Skirt' },
-
-    { name: 'Sweater' },
-    { name: 'Shawl' },
-
-    { name: 'Baby Shirt' },
-    { name: 'Baby Trouser' },
-    { name: 'Baby Frock' },
-
-    { name: 'Bed Sheet Single' },
-    { name: 'Bed Sheet Double' },
-
-    { name: 'Hand Towel' },
-    { name: 'Bath Towel' },
-
-    { name: 'Cushion Cover' },
-    { name: 'Pillow Cover' },
-
-    { name: 'Blanket Single' },
-    { name: 'Blanket Double' },
-    { name: 'Blanket King Size' }
+    { name: 'Pyjama' }, { name: 'Salwar' }, { name: 'Petticoat' },
+    { name: 'Coat' }, { name: 'Jacket' },
+    { name: 'Sherwani' }, { name: 'Tie' }, { name: 'Overcoat' },
+    { name: 'Cotton Saree' }, { name: 'Silk Saree' },
+    { name: 'Blouse' }, { name: 'Dupatta' }, { name: 'Scarf' },
+    { name: 'Dress' }, { name: 'Gown' }, { name: 'Long Skirt' },
+    { name: 'Sweater' }, { name: 'Shawl' },
+    { name: 'Baby Shirt' }, { name: 'Baby Trouser' }, { name: 'Baby Frock' },
+    { name: 'Bed Sheet Single' }, { name: 'Bed Sheet Double' },
+    { name: 'Hand Towel' }, { name: 'Bath Towel' },
+    { name: 'Cushion Cover' }, { name: 'Pillow Cover' },
+    { name: 'Blanket Single' }, { name: 'Blanket Double' }, { name: 'Blanket King Size' }
   ];
 
   // ===============================
-  // ORDER STORAGE
+  // STORAGE
   // ===============================
 
   activeOrders: any[] = [];
@@ -99,6 +60,25 @@ export class OrderService {
 
   constructor() {
     this.seedDemoData();
+  }
+
+  // ===============================
+  // STAGE HISTORY INITIALIZER
+  // ===============================
+
+  private initializeStageHistory(currentStageIndex: number) {
+    return this.stages.map((stage, index) => ({
+      stage,
+      date: index <= currentStageIndex
+        ? this.generatePastDate(index)
+        : null
+    }));
+  }
+
+  private generatePastDate(offset: number) {
+    const date = new Date();
+    date.setDate(date.getDate() - (this.stages.length - offset));
+    return date.toISOString();
   }
 
   // ===============================
@@ -131,21 +111,19 @@ export class OrderService {
     const totalAmount = weight * randomService.pricePerKg;
 
     const paidAmount = isHistory
-      ? Math.floor(Math.random() * totalAmount)
+      ? totalAmount
       : Math.floor(Math.random() * (totalAmount / 2));
 
-    const pendingAmount = Math.max(totalAmount - paidAmount, 0);
+    const pendingAmount = totalAmount - paidAmount;
 
     let paymentStatus = 'Unpaid';
     if (paidAmount === 0) paymentStatus = 'Unpaid';
     else if (pendingAmount === 0) paymentStatus = 'Paid';
     else paymentStatus = 'Partial';
 
-    const modes = ['Online', 'UPI', 'Cash', 'Cheque'];
-    const paymentMode =
-      paidAmount > 0
-        ? modes[Math.floor(Math.random() * modes.length)]
-        : 'Not Paid';
+    const currentStageIndex = isHistory
+      ? this.stages.length - 1
+      : Math.floor(Math.random() * (this.stages.length - 1));
 
     return {
       id,
@@ -156,17 +134,16 @@ export class OrderService {
       totalAmount,
       paidAmount,
       pendingAmount,
-      paymentMode,
+      paymentMode: paidAmount > 0 ? 'Online' : 'Not Paid',
       paymentStatus,
-      currentStageIndex: isHistory
-        ? this.stages.length - 1
-        : Math.floor(Math.random() * (this.stages.length - 1)),
+      currentStageIndex,
+      stageHistory: this.initializeStageHistory(currentStageIndex),
       pickupDate: new Date().toISOString()
     };
   }
 
   // ===============================
-  // CREATE NEW ORDER (WITH GARMENTS)
+  // CREATE NEW ORDER
   // ===============================
 
   createNewOrder(
@@ -180,6 +157,8 @@ export class OrderService {
 
     const totalAmount = weight * service.pricePerKg;
 
+    const currentStageIndex = 0;
+
     const newOrder = {
       id: Date.now(),
       serviceType,
@@ -191,11 +170,38 @@ export class OrderService {
       pendingAmount: totalAmount,
       paymentMode: 'Not Paid',
       paymentStatus: 'Unpaid',
-      currentStageIndex: 0,
+      currentStageIndex,
+      stageHistory: this.stages.map((stage, index) => ({
+        stage,
+        date: index === 0 ? new Date().toISOString() : null
+      })),
       pickupDate: new Date().toISOString()
     };
 
     this.activeOrders.unshift(newOrder);
+  }
+
+  // ===============================
+  // ADVANCE STAGE
+  // ===============================
+
+  advanceStage(orderId: number) {
+
+    const order = this.getOrderById(orderId);
+    if (!order) return;
+
+    if (order.currentStageIndex >= this.stages.length - 1) return;
+
+    order.currentStageIndex++;
+
+    order.stageHistory[order.currentStageIndex].date =
+      new Date().toISOString();
+
+    // If delivered → move to history
+    if (order.currentStageIndex === this.stages.length - 1) {
+      this.activeOrders = this.activeOrders.filter(o => o.id !== orderId);
+      this.orderHistory.unshift(order);
+    }
   }
 
   // ===============================
